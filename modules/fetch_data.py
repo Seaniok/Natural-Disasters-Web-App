@@ -41,9 +41,37 @@ def convert(elements):
                 if "deathsTotal" in element.keys():
                     obj.info = f"Death Count: {element['deathsTotal']}"
             
+            case "Volcanoe":
+                obj.lat = element['latitude']
+                obj.lon = element['longitude']
+                obj.date = f"{element['day']}-{element['month']}-{element['year']}"
+                obj.mag = element['vei'] # Zrób jeszcze przeliczenie !!
+                obj.title = f"Volcanoe Eruption: {element['locationName']}, {element['country']}"
+                if "deathsTotal" in element.keys():
+                    obj.info = f"Death Count: {element['deathsTotal']}"
+            
+            case "Earthquake":
+                obj.lat = element['latitude']
+                obj.lon = element['longitude']
+                obj.date = f"{element['day']}-{element['month']}-{element['year']}"
+                obj.mag = element['eqMagnitude'] # Zrób jeszcze przeliczenie !!!
+                obj.title = f"Earthquake: {element['locationName']}"
+                if "deathsTotal" in element.keys():
+                    obj.info = f"Death Count: {element['deathsTotal']}"
+            
+            case "Wildfire":
+                geometry = element['geometries'][0]
+                obj.lat = geometry['coordinates'][1]
+                obj.lon = geometry['coordinates'][0]
+                obj.date = geometry['date']
+                obj.mag = geometry['magnitudeValue']
+                obj.title = element['title']
+                obj.info = element['description']
+            
             
             
         results.append(obj)
+    
     return results
                  
                 
