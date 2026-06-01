@@ -1,4 +1,4 @@
-from fetch_data import fetch_data
+from modules.fetch_data import fetch_data
 from datetime import datetime
 
 urls = ["https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/tsunamis/events",

@@ -1,10 +1,428 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Natural Disasters Web App</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Natural Disaster Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #0a0c10;
+      --panel:     #111318;
+      --border:    #1e2230;
+      --text:      #c8d0e0;
+      --muted:     #4a5270;
+      --accent:    #e8f040;
+
+      --tsunami:   #38bdf8;
+      --volcano:   #fb923c;
+      --quake:     #f87171;
+      --wildfire:  #fbbf24;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 300px;
+      min-width: 300px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+    }
+
+    #sidebar-header {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #sidebar-header h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    #sidebar-header p {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Stats */
+    #stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+
+    .stat-box .num {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .stat-box .label {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-box.tsunami .num  { color: var(--tsunami); }
+    .stat-box.volcano .num  { color: var(--volcano); }
+    .stat-box.quake .num    { color: var(--quake); }
+    .stat-box.wildfire .num { color: var(--wildfire); }
+
+    /* Filters */
+    #filters {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .filter-btn:hover        { border-color: var(--text); color: var(--text); }
+    .filter-btn.active       { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .filter-btn.all.active   { background: var(--accent); }
+
+    /* List */
+    #event-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    #event-list::-webkit-scrollbar { width: 4px; }
+    #event-list::-webkit-scrollbar-track { background: transparent; }
+    #event-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .event-item {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .1s;
+    }
+
+    .event-item:hover { background: rgba(255,255,255,.03); }
+
+    .event-item .ev-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .event-item .ev-meta {
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 3px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .ev-type-dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+      flex-shrink: 0;
+      position: relative;
+      top: 1px;
+    }
+
+    /* Fetch button */
+    #fetch-btn {
+      margin: 12px 16px;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all .15s;
+    }
+
+    #fetch-btn:hover    { background: var(--accent); color: var(--bg); }
+    #fetch-btn:disabled { opacity: .4; cursor: default; }
+
+    #fetch-status {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 0 16px 12px;
+      min-height: 18px;
+    }
+
+    /* ── MAP ── */
+    #map {
+      flex: 1;
+      background: var(--bg);
+    }
+
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    }
+
+    .leaflet-popup-content {
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      line-height: 1.6;
+      margin: 12px 14px;
+    }
+
+    .leaflet-popup-content strong {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.8rem;
+      display: block;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+
+    .leaflet-popup-tip { background: var(--panel); }
+    .leaflet-popup-close-button { color: var(--muted) !important; }
+
+    /* Empty state */
+    #empty-state {
+      padding: 32px 16px;
+      text-align: center;
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+  </style>
 </head>
 <body>
+
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>⚠ Disaster Tracker 2026</h1>
+    <p>NASA EONET · NOAA NGDC</p>
+  </div>
+
+  <div id="stats">
+    <div class="stat-box quake">
+      <div class="num" id="stat-earthquake">—</div>
+      <div class="label">Earthquakes</div>
+    </div>
+    <div class="stat-box tsunami">
+      <div class="num" id="stat-tsunami">—</div>
+      <div class="label">Tsunamis</div>
+    </div>
+    <div class="stat-box volcano">
+      <div class="num" id="stat-volcano">—</div>
+      <div class="label">Volcanoes</div>
+    </div>
+    <div class="stat-box wildfire">
+      <div class="num" id="stat-wildfire">—</div>
+      <div class="label">Wildfires</div>
+    </div>
+  </div>
+
+  <div id="filters">
+    <button class="filter-btn all active" onclick="filterBy(null, this)">All</button>
+    <button class="filter-btn" style="color:var(--quake);border-color:var(--quake)" onclick="filterBy('Earthquake', this)">Earthquakes</button>
+    <button class="filter-btn" style="color:var(--tsunami);border-color:var(--tsunami)" onclick="filterBy('Tsunami', this)">Tsunamis</button>
+    <button class="filter-btn" style="color:var(--volcano);border-color:var(--volcano)" onclick="filterBy('Volcanoe', this)">Volcanoes</button>
+    <button class="filter-btn" style="color:var(--wildfire);border-color:var(--wildfire)" onclick="filterBy('Wildfire', this)">Wildfires</button>
+  </div>
+
+  <div id="event-list">
+    <div id="empty-state">Brak danych.<br>Kliknij "Pobierz dane" żeby zaciągnąć<br>zdarzenia z NASA i NOAA.</div>
+  </div>
+
+  <button id="fetch-btn" onclick="fetchData()">↓ Pobierz dane</button>
+  <div id="fetch-status"></div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // ── MAP INIT ──
+  const map = L.map('map', { zoomControl: false }).setView([20, 10], 2);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  // ── STATE ──
+  const TYPE_COLORS = {
+    Tsunami:    '#38bdf8',
+    Volcanoe:   '#fb923c',
+    Earthquake: '#f87171',
+    Wildfire:   '#fbbf24',
+  };
+
+  let allDisasters = [];
+  let markers = L.layerGroup().addTo(map);
+  let activeFilter = null;
+
+  // ── HELPERS ──
+  function makeCircle(d) {
+    const color = TYPE_COLORS[d.type] || '#fff';
+    const radius = Math.max(4, Math.min(18, (d.mag || 1) * 1.5));
+    return L.circleMarker([d.lat, d.lon], {
+      radius,
+      color,
+      fillColor: color,
+      fillOpacity: 0.55,
+      weight: 1.5,
+      opacity: 0.85,
+    }).bindPopup(`
+      <strong>${d.title}</strong>
+      <span>📅 ${d.date || 'brak daty'}</span><br>
+      <span>📍 ${d.lat?.toFixed(2)}, ${d.lon?.toFixed(2)}</span><br>
+      <span>💥 Mag: ${d.mag?.toFixed ? d.mag.toFixed(1) : d.mag}</span>
+      ${d.info ? `<br><span>ℹ ${d.info}</span>` : ''}
+    `);
+  }
+
+  function renderMarkers(data) {
+    markers.clearLayers();
+    data.forEach(d => {
+      if (d.lat && d.lon) markers.addLayer(makeCircle(d));
+    });
+  }
+
+  function renderList(data) {
+    const list = document.getElementById('event-list');
+    if (!data.length) {
+      list.innerHTML = '<div id="empty-state">Brak zdarzeń dla tego filtra.</div>';
+      return;
+    }
+    list.innerHTML = data.map((d, i) => `
+      <div class="event-item" onclick="focusEvent(${i})">
+        <div class="ev-title">
+          <span class="ev-type-dot" style="background:${TYPE_COLORS[d.type] || '#fff'}"></span>
+          ${d.title}
+        </div>
+        <div class="ev-meta">
+          <span>${d.date || '—'}</span>
+          <span>mag ${d.mag?.toFixed ? d.mag.toFixed(1) : (d.mag || '—')}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function applyFilter(type) {
+    const filtered = type ? allDisasters.filter(d => d.type === type) : allDisasters;
+    renderMarkers(filtered);
+    renderList(filtered);
+  }
+
+  // ── ACTIONS ──
+  window.filterBy = function(type, btn) {
+    activeFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilter(type);
+  };
+
+  window.focusEvent = function(idx) {
+    const filtered = activeFilter ? allDisasters.filter(d => d.type === activeFilter) : allDisasters;
+    const d = filtered[idx];
+    if (d?.lat && d?.lon) {
+      map.setView([d.lat, d.lon], 6, { animate: true });
+    }
+  };
+
+  async function loadDisasters() {
+    try {
+      const res = await fetch('/api/disasters');
+      allDisasters = await res.json();
+      applyFilter(activeFilter);
+      loadStats();
+    } catch (e) {
+      console.error('Błąd ładowania:', e);
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/stats');
+      const stats = await res.json();
+      document.getElementById('stat-earthquake').textContent = stats.Earthquake || 0;
+      document.getElementById('stat-tsunami').textContent    = stats.Tsunami    || 0;
+      document.getElementById('stat-volcano').textContent    = stats.Volcanoe   || 0;
+      document.getElementById('stat-wildfire').textContent   = stats.Wildfire   || 0;
+    } catch(e) {}
+  }
+
+  window.fetchData = async function() {
+    const btn = document.getElementById('fetch-btn');
+    const status = document.getElementById('fetch-status');
+    btn.disabled = true;
+    btn.textContent = '⟳ Pobieranie...';
+    status.textContent = 'Łączenie z NASA i NOAA...';
+    try {
+      const res = await fetch('/api/fetch', { method: 'POST' });
+      const data = await res.json();
+      status.textContent = data.message;
+      await loadDisasters();
+    } catch (e) {
+      status.textContent = 'Błąd połączenia.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↓ Pobierz dane';
+    }
+  };
+
+  // ── INIT ──
+  loadDisasters();
+</script>
 </body>
 </html>
