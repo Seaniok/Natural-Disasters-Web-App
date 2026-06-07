@@ -5,7 +5,6 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'disasters.db')
  
  
 def init_db():
-    """Tworzy tabelę disasters jeśli nie istnieje."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -26,11 +25,6 @@ def init_db():
  
  
 def save_disasters(disasters: list):
-    """
-    Zapisuje listę obiektów NaturalDisaster do bazy.
-    Duplikaty (ten sam title + date) są ignorowane.
-    Zwraca liczbę nowo dodanych rekordów.
-    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     inserted = 0
@@ -50,10 +44,6 @@ def save_disasters(disasters: list):
  
  
 def get_disasters(type_filter: str = None, limit: int = 1000) -> list[dict]:
-    """
-    Pobiera zdarzenia z bazy jako listę słowników.
-    Opcjonalnie filtruje po typie (Earthquake, Tsunami, Volcanoe, Wildfire).
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
